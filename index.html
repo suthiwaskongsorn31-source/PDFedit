@@ -199,6 +199,11 @@ html.dark .banner{background:#3a2e10;border-color:#6b5317;color:#f5d48a}
 .prev{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;justify-content:center;align-items:flex-start;min-height:300px}
 .prev.col{flex-direction:column;align-items:center}
 .prev canvas{box-shadow:0 2px 10px rgba(0,0,0,.18);background:#fff;max-width:100%}
+.posrow{display:flex;gap:14px;align-items:center}
+.posgrid{display:grid;grid-template-columns:repeat(3,26px);gap:4px;padding:6px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;flex:none}
+.posgrid button{width:26px;height:26px;border:1px solid var(--line2);background:var(--panel);border-radius:5px;cursor:pointer;display:grid;place-items:center;padding:0}
+.posgrid button i{width:6px;height:6px;border-radius:50%;background:var(--ink3)}
+.posgrid button.on{background:var(--acc);border-color:var(--acc)} .posgrid button.on i{background:#fff}
 .hfgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
 /* lists */
 .ilist{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;margin:12px 0}

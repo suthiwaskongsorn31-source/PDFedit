@@ -499,7 +499,7 @@ async function nupBuild(k) {
 }
 
 /* ================= WATERMARK (vector) ================= */
-const WM = { kind: 'text', text: 'CONFIDENTIAL', font: 'Kanit', bold: true, italic: false, size: 64, color: '#d7372b', opacity: 22, angle: 45, layout: 'center', img: null, imgFile: null, imgScale: 40, range: '', pv: 0, under: false };
+const WM = { px: 0.5, py: 0.5, kind: 'text', text: 'CONFIDENTIAL', font: 'Kanit', bold: true, italic: false, size: 64, color: '#d7372b', opacity: 22, angle: 45, layout: 'center', img: null, imgFile: null, imgScale: 40, range: '', pv: 0, under: false };
 function wmTextObj(F) { return { text: WM.text, font: WM.font, bold: WM.bold, italic: WM.italic, size: WM.size, color: WM.color, x: 0, y: 0, align: 'center', lh: 1 }; }
 function wmPlacements(W, H, L) {
   const pl = []; if (WM.layout === 'tile') { const tw = (L ? L.w : 200) + WM.size * 1.6, th = (L ? L.h : 60) + WM.size * 2.2; const D = Math.hypot(W, H); let row = 0;
@@ -508,7 +508,7 @@ function wmPlacements(W, H, L) {
   return pl;
 }
 function drawWMCanvas(g, W, H) {
-  g.save(); g.globalAlpha = WM.opacity / 100; g.translate(W / 2, H / 2); g.rotate(-WM.angle * Math.PI / 180);
+  g.save(); g.globalAlpha = WM.opacity / 100; g.translate(W * WM.px, H * WM.py); g.rotate(-WM.angle * Math.PI / 180);
   if (WM.kind === 'image') { if (WM.img) { const w = W * WM.imgScale / 100, h = w * WM.img.naturalHeight / WM.img.naturalWidth;
     wmPlacements(W, H, { w, h }).forEach(([x, y]) => g.drawImage(WM.img, x - w / 2, y - h / 2, w, h)); } }
   else { const o = wmTextObj(); const F = faceFor(o); if (!F) { requestFace(o, () => window._wmPv && window._wmPv()); g.restore(); return; }
@@ -530,14 +530,38 @@ function renderWatermark() {
       <label>ขนาด (% ความกว้างหน้า): <b id="wISv">${WM.imgScale}</b></label><input type="range" id="wIS" min="5" max="100" value="${WM.imgScale}"></div>
     <div class="fld"><label>ความทึบ: <b id="wOv">${WM.opacity}%</b></label><input type="range" id="wO" min="3" max="100" value="${WM.opacity}"></div>
     <div class="fld"><label>มุมเอียง: <b id="wAv">${WM.angle}°</b></label><input type="range" id="wA" min="-90" max="90" value="${WM.angle}"></div>
-    <div class="fld"><span class="lbl">รูปแบบ</span><div class="seg" id="wL"><button data-v="center">ตรงกลาง</button><button data-v="tile">เรียงเต็มหน้า</button></div></div>
+    <div class="fld"><span class="lbl">รูปแบบ</span><div class="seg" id="wL"><button data-v="center">วางจุดเดียว</button><button data-v="tile">เรียงเต็มหน้า</button></div></div>
+    <div class="fld" id="wPosF"><span class="lbl">ตำแหน่ง — ลากลายน้ำบนภาพตัวอย่างได้เลย หรือเลือกด่วน</span>
+      <div class="posrow"><div class="posgrid" id="wPos">${[[.15,.12],[.5,.12],[.85,.12],[.15,.5],[.5,.5],[.85,.5],[.15,.88],[.5,.88],[.85,.88]].map(([x,y]) => `<button data-px="${x}" data-py="${y}" title="${Math.round(x*100)}%, ${Math.round(y*100)}%"><i></i></button>`).join('')}</div>
+      <div><div class="row" style="margin-bottom:6px"><label class="mini">X <input class="inp num" type="number" id="wPX" min="0" max="100" step="1" value="${Math.round(WM.px * 100)}">%</label>
+        <label class="mini">Y <input class="inp num" type="number" id="wPY" min="0" max="100" step="1" value="${Math.round(WM.py * 100)}">%</label></div>
+        <span class="hint">X = ซ้าย→ขวา, Y = บน→ล่าง (จุดกึ่งกลางลายน้ำ)</span></div></div></div>
     <div class="fld"><label>หน้าที่ใส่</label><input class="inp" id="wR" placeholder="ทั้งหมด (หรือ 1-3, 5, คี่, คู่)" value="${esc(WM.range)}"></div>
     <label class="chk"><input type="checkbox" id="wU" ${WM.under ? 'checked' : ''}> วางไว้ใต้เนื้อหา (ไม่ทับตัวอักษร)</label>
     <div style="margin-top:12px"><button class="btn pri" id="wGo">${icon('check')} ใส่ลายน้ำ</button></div>
   </div><div><div class="prev col">${previewCtl('wv')}<canvas id="wPrev"></canvas></div></div></div></div>`;
   const seg = (id, key) => $$('#' + id + ' button').forEach(b => { b.classList.toggle('on', b.dataset.v === WM[key]); b.onclick = () => { WM[key] = b.dataset.v; seg(id, key); ui(); pv(); }; });
   const ui = () => { $('#wText').style.display = WM.kind === 'text' ? '' : 'none'; $('#wImg').style.display = WM.kind === 'image' ? '' : 'none'; };
-  let pvT = 0; const pv = window._wmPv = () => { clearTimeout(pvT); pvT = setTimeout(async () => { if (WM.kind === 'text') await ensureFace(wmTextObj()).catch(() => { }); $('#wvN').textContent = `หน้า ${WM.pv + 1} / ${n}`; await previewWith($('#wPrev'), WM.pv, Math.min(460, main.clientWidth - 80), drawWMCanvas); }, 100); };
+  // preview: page rendered once, watermark redrawn on top (fast enough for dragging)
+  let base = null, baseKey = '';
+  const draw = () => { const c = $('#wPrev'); if (!base || !c) return; const g = c.getContext('2d'); g.setTransform(1, 0, 0, 1, 0, 0); g.drawImage(base.cv, 0, 0);
+    g.save(); g.scale(base.scale * DPR, base.scale * DPR); drawWMCanvas(g, base.W, base.H);
+    if (WM.layout !== 'tile') { const x = base.W * WM.px, y = base.H * WM.py, r = 7 / base.scale; g.strokeStyle = '#2563eb'; g.lineWidth = 1.5 / base.scale; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.moveTo(x - r * 1.8, y); g.lineTo(x + r * 1.8, y); g.moveTo(x, y - r * 1.8); g.lineTo(x, y + r * 1.8); g.stroke(); }
+    g.restore(); };
+  const syncPos = () => { $('#wPX').value = Math.round(WM.px * 100); $('#wPY').value = Math.round(WM.py * 100);
+    $$('#wPos button').forEach(b => b.classList.toggle('on', Math.abs(+b.dataset.px - WM.px) < 0.01 && Math.abs(+b.dataset.py - WM.py) < 0.01)); $('#wPosF').style.opacity = WM.layout === 'tile' ? .55 : 1; };
+  let pvT = 0; const pv = window._wmPv = () => { clearTimeout(pvT); pvT = setTimeout(async () => { if (WM.kind === 'text') await ensureFace(wmTextObj()).catch(() => { });
+    $('#wvN').textContent = `หน้า ${WM.pv + 1} / ${n}`; const width = Math.min(460, main.clientWidth - 80); const key = S.ver + ':' + WM.pv + ':' + width;
+    if (key !== baseKey) { const c = $('#wPrev'); const info = await renderPageTo(c, WM.pv, width); const cv = document.createElement('canvas'); cv.width = c.width; cv.height = c.height; cv.getContext('2d').drawImage(c, 0, 0); base = { cv, ...info }; baseKey = key; }
+    draw(); syncPos(); }, 60); };
+  const cvs = $('#wPrev'); cvs.style.cursor = 'move'; cvs.style.touchAction = 'none';
+  const setFromEvent = e => { const r = cvs.getBoundingClientRect(); WM.px = clamp((e.clientX - r.left) / r.width, 0, 1); WM.py = clamp((e.clientY - r.top) / r.height, 0, 1); draw(); syncPos(); };
+  cvs.onpointerdown = e => { if (WM.layout === 'tile') { WM.layout = 'center'; seg('wL', 'layout'); }
+    e.preventDefault(); cvs.setPointerCapture(e.pointerId); setFromEvent(e); cvs.onpointermove = setFromEvent; };
+  cvs.onpointerup = cvs.onpointercancel = () => { cvs.onpointermove = null; };
+  $$('#wPos button').forEach(b => b.onclick = () => { WM.px = +b.dataset.px; WM.py = +b.dataset.py; if (WM.layout === 'tile') { WM.layout = 'center'; seg('wL', 'layout'); } draw(); syncPos(); });
+  $('#wPX').oninput = e => { WM.px = clamp((+e.target.value || 0) / 100, 0, 1); draw(); syncPos(); };
+  $('#wPY').oninput = e => { WM.py = clamp((+e.target.value || 0) / 100, 0, 1); draw(); syncPos(); };
   seg('wKind', 'kind'); seg('wL', 'layout'); ui();
   wireFontPicker('wF', f => { WM.font = f; pv(); });
   $('#wT').oninput = e => { WM.text = e.target.value; pv(); };
@@ -570,9 +594,9 @@ function renderWatermark() {
         const page = doc.getPage(pages[j]); const W = new PageWriter(doc, page); const { W: PW, H: PH } = W.G;
         W.push('q', W.gs(WM.opacity / 100) + ' gs');
         if (formRef) { const nm = page.node.newXObject('Wm', formRef).toString();
-          wmPlacements(PW, PH, L).forEach(([x, y]) => { const tx = PW / 2 + ca * x - sa * y, ty = PH / 2 + sa * x + ca * y; W.push(`q ${nf(ca)} ${nf(sa)} ${nf(-sa)} ${nf(ca)} ${nf(tx)} ${nf(ty)} cm ${nm} Do Q`); });
+          wmPlacements(PW, PH, L).forEach(([x, y]) => { const tx = PW * WM.px + ca * x - sa * y, ty = PH * WM.py + sa * x + ca * y; W.push(`q ${nf(ca)} ${nf(sa)} ${nf(-sa)} ${nf(ca)} ${nf(tx)} ${nf(ty)} cm ${nm} Do Q`); });
         } else { const nm = W.xobj(img.ref); const w = PW * WM.imgScale / 100, h = w * ih / iw;
-          wmPlacements(PW, PH, { w, h }).forEach(([x, y]) => { const tx = PW / 2 + ca * x - sa * y, ty = PH / 2 + sa * x + ca * y;
+          wmPlacements(PW, PH, { w, h }).forEach(([x, y]) => { const tx = PW * WM.px + ca * x - sa * y, ty = PH * WM.py + sa * x + ca * y;
             W.push(`q ${nf(ca)} ${nf(sa)} ${nf(-sa)} ${nf(ca)} ${nf(tx)} ${nf(ty)} cm ${nf(w)} 0 0 ${nf(-h)} ${nf(-w / 2)} ${nf(h / 2)} cm ${nm} Do Q`); }); }
         W.push('Q');
         if (WM.under) { // put stream first (under existing content)
