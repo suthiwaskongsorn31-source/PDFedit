@@ -38,9 +38,43 @@ function stampLayout(o) {
   t1.x = o.x + (w - L1.w) / 2; t1.y = o.y + pad * 0.7; if (t2) { t2.x = o.x + (w - L2.w) / 2; t2.y = t1.y + L1.h - o.size * 0.05; }
   return { w, h, t1, F1, t2, F2 };
 }
+/* ---------- signature block (ลงชื่อ / ชื่อ / ตำแหน่ง / วันที่) ---------- */
+const TH_DIG = s => String(s).replace(/[0-9]/g, d => '๐๑๒๓๔๕๖๗๘๙'[d]);
+function sigLayout(o) {
+  const lab = { font: o.font || 'THSarabunNew', size: o.size, color: o.labelColor || '#111111', lh: 1, align: 'left' };
+  const val = { ...lab, color: o.ink, bold: !!o.inkBold };
+  const FL = faceFor(lab), FV = faceFor(val); if (!FL) { requestFace(lab, redrawAll); return null; } if (!FV) { requestFace(val, redrawAll); return null; }
+  const tw = t => layoutText({ ...lab, text: t }, FL).w; const L0 = layoutText({ ...lab, text: 'ก' }, FL);
+  const rowH = o.size * 1.65, asc = L0.asc, gap = o.size * 0.25; const W = o.w; const texts = [], dots = [];
+  const num = v => o.thaiDigits ? TH_DIG(v) : String(v);
+  let y = o.y; const rows = [];
+  if (o.showSign !== false) rows.push('sign'); if (o.showName !== false) rows.push('name'); if (o.showPos !== false) rows.push('pos'); if (o.showDate !== false) rows.push('date');
+  const sigTop = y; let sigRect = null; if (o.showSign !== false && o.sigSrc) y += o.size * 1.4; // room for the handwritten signature
+  const label = (t, x, by) => texts.push({ ...lab, text: t, x, y: by - asc, F: FL });
+  const value = (t, x1, x2, by) => { if (!t) return; const w = layoutText({ ...val, text: t }, FV).w; texts.push({ ...val, text: t, x: (x1 + x2) / 2 - w / 2, y: by - asc - o.size * 0.08, F: FV }); };
+  const dot = (x1, x2, by) => dots.push([x1, x2, by + o.size * 0.12]);
+  const leftW = tw('(ลงชื่อ)') + gap;
+  for (const r of rows) {
+    const base = y + asc;
+    if (r === 'sign') { label('(ลงชื่อ)', o.x, base); dot(o.x + leftW, o.x + W, base); if (o.sigSrc) sigRect = { x1: o.x + leftW, x2: o.x + W, top: sigTop, base }; }
+    else if (r === 'name') { const pw = tw('('), x1 = o.x + leftW * 0.55, x2 = o.x + W - pw; label('(', x1 - pw - 1, base); label(')', x2 + 1, base); dot(x1, x2, base); value(o.name, x1, x2, base); }
+    else if (r === 'pos') { const lw = tw(o.posLabel || 'ตำแหน่ง') + gap; label(o.posLabel || 'ตำแหน่ง', o.x, base); dot(o.x + lw, o.x + W, base); value(o.pos, o.x + lw, o.x + W, base); }
+    else if (r === 'date') { const a = tw('วันที่') + gap * 0.6, b = tw('เดือน') + gap * 1.2, c = tw('พ.ศ.') + gap * 1.2; const rest = W - a - b - c;
+      const d1 = rest * 0.2, d2 = rest * 0.44, d3 = rest * 0.36; let x = o.x;
+      label('วันที่', x, base); x += a; dot(x, x + d1, base); value(num(o.day || ''), x, x + d1, base); x += d1 + gap * 0.6;
+      label('เดือน', x, base); x += b - gap * 0.6; dot(x, x + d2, base); value(o.month || '', x, x + d2, base); x += d2 + gap * 0.6;
+      label('พ.ศ.', x, base); x += c - gap * 0.6; dot(x, x + d3, base); value(num(o.year || ''), x, x + d3, base); }
+    y += rowH;
+  }
+  let img = null; if (sigRect && o._img) { const ar = o._img.naturalWidth / o._img.naturalHeight; let h = o.size * 2.1, w = h * ar; const maxW = (sigRect.x2 - sigRect.x1) * 0.9; if (w > maxW) { w = maxW; h = w / ar; }
+    img = { x: (sigRect.x1 + sigRect.x2) / 2 - w / 2, y: sigRect.base - h * 0.78, w, h }; }
+  return { w: W, h: y - o.y - rowH + o.size * 1.4, texts, dots, img };
+}
+async function ensureSigFaces(o) { await ensureFace({ font: o.font || 'THSarabunNew' }); await ensureFace({ font: o.font || 'THSarabunNew', bold: !!o.inkBold }); if (o.sigSrc && !o._img) { o._img = new Image(); o._img.src = o.sigSrc; await o._img.decode().catch(() => { }); } }
 function bbox(o) {
   if (o.type === 'text') { const F = faceFor(o); if (!F) { requestFace(o, redrawAll); return { x: o.x, y: o.y, w: Math.max(20, (o.text || '').length * o.size * 0.5), h: o.size * 1.4 }; }
     const L = layoutText(o, F); return { x: o.x, y: o.y, w: L.w, h: L.h }; }
+  if (o.type === 'sigblock') { const S2 = sigLayout(o); const top = S2 && S2.img ? Math.min(o.y, S2.img.y) : o.y; return S2 ? { x: o.x - 2, y: top, w: S2.w + 4, h: S2.h + (o.y - top) } : { x: o.x, y: o.y, w: o.w, h: 80 }; }
   if (o.type === 'stamp') { const S2 = stampLayout(o); return S2 ? { x: o.x, y: o.y, w: S2.w, h: S2.h } : { x: o.x, y: o.y, w: 100, h: 40 }; }
   if (o.pts) { const xs = o.pts.map(p => p[0]), ys = o.pts.map(p => p[1]), m = o.width / 2; const x = Math.min(...xs) - m, y = Math.min(...ys) - m; return { x, y, w: Math.max(...xs) + m - x, h: Math.max(...ys) + m - y }; }
   if ('x1' in o) { const m = Math.max(3, o.width * 2); const x = Math.min(o.x1, o.x2) - m, y = Math.min(o.y1, o.y2) - m; return { x, y, w: Math.abs(o.x2 - o.x1) + 2 * m, h: Math.abs(o.y2 - o.y1) + 2 * m }; }
@@ -77,6 +111,11 @@ function drawObj(g, o) {
     case 'mark': { g.strokeStyle = g.fillStyle = o.color; g.lineWidth = o.width || Math.max(1.5, o.w * 0.13);
       if (o.kind === 'dot') { g.beginPath(); g.arc(o.x + o.w / 2, o.y + o.h / 2, Math.min(o.w, o.h) * 0.3, 0, Math.PI * 2); g.fill(); }
       else markSegs(o).forEach(seg => { g.beginPath(); seg.forEach((p, i) => i ? g.lineTo(...p) : g.moveTo(...p)); g.stroke(); }); break; }
+    case 'sigblock': { const L = sigLayout(o); if (!L) break;
+      g.save(); g.strokeStyle = o.labelColor || '#111'; g.lineWidth = Math.max(0.6, o.size * 0.06); g.lineCap = 'round'; g.setLineDash([0, o.size * 0.17]);
+      L.dots.forEach(([a, b, y]) => { g.beginPath(); g.moveTo(a, y); g.lineTo(b, y); g.stroke(); }); g.restore();
+      if (L.img && o._img) g.drawImage(o._img, L.img.x, L.img.y, L.img.w, L.img.h);
+      L.texts.forEach(t => canvasText(g, t, t.F)); break; }
     case 'stamp': { const L = stampLayout(o); if (!L) break; g.strokeStyle = o.color; const sw = o.size * 0.075;
       g.lineWidth = sw; rrect(g, o.x + sw / 2, o.y + sw / 2, L.w - sw, L.h - sw, o.size * 0.22); g.stroke();
       g.lineWidth = sw * 0.4; const ins = sw * 2.2; rrect(g, o.x + ins, o.y + ins, L.w - ins * 2, L.h - ins * 2, o.size * 0.14); g.stroke();
@@ -130,7 +169,9 @@ function renderEdit() {
           <button class="btn" id="eSign" title="ลายเซ็น">${icon('sign')}<span class="t">ลายเซ็น</span></button>
           <div class="dd"><button class="btn" id="eStampB" title="ตราประทับ">${icon('stamp')}<span class="t">ตรายาง</span>${icon('down', 'width="12" height="12"')}</button>
             <div class="ddm" id="eStampM">${STAMPS.map(([t, c]) => `<button class="stp" data-st="${t}" data-c="${c}" style="color:${c};border-color:${c}">${t}</button>`).join('')}
-              <label class="chk" style="grid-column:1/-1;margin:6px 2px 0"><input type="checkbox" id="eStDate" checked> ใส่วันที่ใต้ตรา</label></div></div>
+              <label class="chk" style="grid-column:1/-1;margin:6px 2px 0"><input type="checkbox" id="eStDate" checked> ใส่วันที่ใต้ตรา</label>
+              <button class="btn sm" id="eStCustom" style="grid-column:1/-1">${icon('edit')} ตรายางข้อความเอง…</button>
+              <button class="btn sm pri" id="eSigBlock" style="grid-column:1/-1">${icon('sign')} แบบฟอร์มลงชื่อ (ลงชื่อ / ชื่อ / ตำแหน่ง / วันที่)…</button></div></div>
           <div class="dd"><button class="btn" id="eMarkB" title="เครื่องหมาย">${icon('mark')}${icon('down', 'width="12" height="12"')}</button>
             <div class="ddm small" id="eMarkM"><button data-mk="check">✓ ถูก</button><button data-mk="cross">✗ ผิด</button><button data-mk="dot">● จุด</button><button data-dt="th">วันที่ไทย</button><button data-dt="th2">วัน/เดือน/ปี พ.ศ.</button><button data-dt="iso">วว/ดด/ปปปป ค.ศ.</button></div></div>
         </div>
@@ -160,7 +201,7 @@ const HINTS = {
 };
 function ctxGroups() {
   const o = selObj(); const t = o ? o.type : E.tool;
-  const G = { text: ['text', 'color', 'op'], edittext: ['text', 'color'], stamp: ['color', 'op'], pen: ['color', 'width', 'op'], hl: ['color', 'width', 'op'], rect: ['color', 'fill', 'width', 'op'], ellipse: ['color', 'fill', 'width', 'op'],
+  const G = { text: ['text', 'color', 'op'], edittext: ['text', 'color'], stamp: ['color', 'op'], sigblock: ['op'], pen: ['color', 'width', 'op'], hl: ['color', 'width', 'op'], rect: ['color', 'fill', 'width', 'op'], ellipse: ['color', 'fill', 'width', 'op'],
     line: ['color', 'width', 'op'], arrow: ['color', 'width', 'op'], white: ['color'], redact: [], image: ['op'], mark: ['color', 'width'], select: [] }[t] || [];
   return o ? [...G, 'obj'] : G;
 }
@@ -228,6 +269,9 @@ function wireEditUI() {
   $$('[data-st]').forEach(b => b.onclick = async () => { $('#eStampM').classList.remove('open');
     const o = { type: 'stamp', label: b.dataset.st, sub: $('#eStDate').checked ? thaiLongDate() : '', color: b.dataset.c, size: 22, font: 'Kanit', opacity: 90 };
     await ensureFace({ font: 'Kanit', bold: true }); await ensureFace({ font: 'Kanit' }); placeAtCenter(o); });
+  $('#eStCustom').onclick = async () => { $('#eStampM').classList.remove('open'); const v = await stampDialog(); if (!v) return;
+    await ensureFace({ font: v.font, bold: true }); await ensureFace({ font: v.font }); placeAtCenter({ type: 'stamp', ...v, size: 22, opacity: 90 }); };
+  $('#eSigBlock').onclick = async () => { $('#eStampM').classList.remove('open'); const v = await sigBlockDialog(); if (!v) return; const o = { type: 'sigblock', ...v, opacity: 100 }; await ensureSigFaces(o); placeAtCenter(o); };
   $$('[data-mk]').forEach(b => b.onclick = () => { $('#eMarkM').classList.remove('open'); placeAtCenter({ type: 'mark', kind: b.dataset.mk, w: 18, h: 18, color: E.p.color === '#ffffff' ? '#111' : E.p.color, width: 2.4 }); });
   $$('[data-dt]').forEach(b => b.onclick = async () => { $('#eMarkM').classList.remove('open'); const d = new Date();
     const t = b.dataset.dt === 'th' ? thaiLongDate() : b.dataset.dt === 'th2' ? thaiToday() : isoToday();
@@ -348,6 +392,7 @@ function onMove(e, P) {
     let sx = Math.max(0.05, (b.w + dx) / b.w), sy = Math.max(0.05, (b.h + dy) / b.h);
     if (o.type === 'text') { if (e.shiftKey) { o.size = Math.max(4, s.size * Math.max(sx, sy)); o.boxW = s.boxW ? s.boxW * Math.max(sx, sy) : 0; E.p.size = Math.round(o.size); } else { o.boxW = Math.max(20, b.w + dx); } }
     else if (o.type === 'stamp') o.size = Math.max(8, s.size * Math.max(sx, sy));
+    else if (o.type === 'sigblock') { const k = Math.max(0.3, Math.max(sx, sy)); if (e.shiftKey) o.w = Math.max(120, s.w * sx); else { o.size = Math.max(6, s.size * k); o.w = Math.max(80, s.w * k); } }
     else { if (o.type === 'image' || o.type === 'mark' || e.shiftKey) sx = sy = Math.max(sx, sy);
       const X = v => b.x + (v - b.x) * sx, Y = v => b.y + (v - b.y) * sy;
       if (o.pts) o.pts = s.pts.map(q => [X(q[0]), Y(q[1])]); else { o.x = X(s.x); o.y = Y(s.y); o.w = s.w * sx; o.h = s.h * sy; } }
@@ -374,8 +419,65 @@ function onUp(e, P) {
 }
 function onDbl(e, P) { if (E.tool !== 'select') return; const p = ptOf(e, P); const hit = hitTest(P.pi, p); const o = hit >= 0 ? E.annots[P.pi][hit] : null;
   if (o && o.type === 'text') { E.sel = { p: P.pi, i: hit }; pushUndo(); editText(P, o); }
-  else if (o && o.type === 'stamp') { modal({ title: 'แก้ข้อความตราประทับ', body: `<div class="fld"><label>ข้อความ</label><input class="inp" id="sl" value="${esc(o.label)}"></div><div class="fld"><label>บรรทัดล่าง</label><input class="inp" id="ss" value="${esc(o.sub || '')}"></div>`,
-    buttons: [{ label: 'ยกเลิก', value: null }, { label: 'ตกลง', pri: true, value: bk => [$('#sl', bk).value, $('#ss', bk).value] }] }).then(v => { if (!v) return; pushUndo(); o.label = v[0] || o.label; o.sub = v[1]; redraw(P.pi); }); } }
+  else if (o && o.type === 'stamp') { stampDialog(o).then(async v => { if (!v) return; pushUndo(); Object.assign(o, v); await ensureFace({ font: o.font, bold: true }).catch(() => { }); await ensureFace({ font: o.font }).catch(() => { }); redraw(P.pi); }); }
+  else if (o && o.type === 'sigblock') { sigBlockDialog(o).then(async v => { if (!v) return; pushUndo(); Object.assign(o, v); delete o._img; await ensureSigFaces(o); redraw(P.pi); }); } }
+
+/* ---------- dialogs: custom stamp & signature block ---------- */
+function inkSwatches(id, cur, list = ['#1d3fd6', '#0b1f8f', '#111111', '#b91c1c', '#15803d', '#6b7280']) {
+  return `<div class="row" id="${id}">${list.map(c => `<button type="button" class="sw ${c === cur ? 'on' : ''}" data-ink="${c}" style="background:${c};${c === cur ? 'box-shadow:0 0 0 2px #2563eb' : ''}"></button>`).join('')}<input type="color" value="${cur}" data-inkc></div>`;
+}
+function wireInk(bk, id, set) { const box = $('#' + id, bk); const mark = c => $$('[data-ink]', box).forEach(x => x.style.boxShadow = x.dataset.ink === c ? '0 0 0 2px #2563eb' : '');
+  $$('[data-ink]', box).forEach(b => b.onclick = () => { set(b.dataset.ink); mark(b.dataset.ink); $('[data-inkc]', box).value = b.dataset.ink; }); $('[data-inkc]', box).oninput = e => { set(e.target.value); mark(''); }; }
+function stampDialog(o = {}) {
+  let color = o.color || '#b91c1c', font = o.font || 'Kanit';
+  return modal({ title: o.label ? 'แก้ไขตรายาง' : 'ตรายางข้อความเอง', body: `
+    <div class="fld"><label>ข้อความหลัก</label><input class="inp" id="sl" value="${esc(o.label || '')}" placeholder="เช่น ได้รับแล้ว, ตรวจถูกต้อง, KWE THAILAND"></div>
+    <div class="fld"><label>บรรทัดล่าง (เว้นว่างได้)</label><input class="inp" id="ss" value="${esc(o.sub ?? thaiLongDate())}"><div class="row" style="margin-top:4px"><button type="button" class="btn xs" id="sTd">วันนี้ (ไทย)</button><button type="button" class="btn xs" id="sTd2">${isoToday()}</button><button type="button" class="btn xs" id="sClr">ไม่มี</button></div></div>
+    <div class="row" style="align-items:flex-end"><div class="fld" style="flex:1"><label>ฟอนต์</label>${fontPickerHTML('sFont', font)}</div><div class="fld"><label>สีหมึก</label>${inkSwatches('sInk', color, ['#b91c1c', '#1d3fd6', '#15803d', '#111111', '#6b7280'])}</div></div>`,
+    buttons: [{ label: 'ยกเลิก', value: null }, { label: o.label ? 'บันทึก' : 'วางตรายาง', pri: true, value: bk => { const l = $('#sl', bk).value.trim(); if (!l) { toast('กรอกข้อความ', 'err'); return null; } return { label: l, sub: $('#ss', bk).value.trim(), color, font }; } }],
+    onOpen: bk => { wireFontPicker('sFont', f => font = f); wireInk(bk, 'sInk', c => color = c);
+      $('#sTd', bk).onclick = () => $('#ss', bk).value = thaiLongDate(); $('#sTd2', bk).onclick = () => $('#ss', bk).value = isoToday(); $('#sClr', bk).onclick = () => $('#ss', bk).value = ''; } });
+}
+function sigBlockDialog(o) {
+  let last = {}; try { last = JSON.parse(localStorage.getItem('pdfs_sigblock') || '{}'); } catch (e) { }
+  let sigs = []; try { sigs = JSON.parse(localStorage.getItem('pdfs_sigs') || '[]'); } catch (e) { }
+  const d = new Date();
+  const v = Object.assign({ name: '', pos: '', posLabel: 'ตำแหน่ง', day: d.getDate(), month: TH_MONTHS[d.getMonth()], year: d.getFullYear() + 543, ink: '#1d3fd6', font: 'THSarabunNew', size: 16, w: 250, thaiDigits: true,
+    showSign: true, showName: true, showPos: true, showDate: true, sigSrc: '' }, o ? {} : last, o || {});
+  let ink = v.ink, font = v.font, sigSrc = v.sigSrc || '';
+  return modal({ title: 'แบบฟอร์มลงชื่อ', wide: true, body: `
+    <div class="cols" style="grid-template-columns:1fr 1fr;gap:10px 14px">
+      <div class="fld"><label>ชื่อ-นามสกุล (ในวงเล็บ)</label><input class="inp" id="bN" value="${esc(v.name)}" placeholder="นางศศิธร สุดเจริญ"></div>
+      <div class="fld"><label><select class="inp" id="bPL" style="width:auto;padding:2px 6px;display:inline-block">${['ตำแหน่ง', 'หน่วยงาน', 'บริษัท', 'ผู้รับ', 'ผู้ตรวจ'].map(x => `<option ${x === v.posLabel ? 'selected' : ''}>${x}</option>`).join('')}</select></label><input class="inp" id="bP" value="${esc(v.pos)}" placeholder="ประชาสัมพันธ์จังหวัดสุโขทัย"></div>
+      <div class="fld"><label>วันที่</label><div class="row"><input class="inp" id="bD" value="${esc(v.day)}" style="width:64px"><select class="inp" id="bM" style="flex:1"><option value="">—</option>${TH_MONTHS.map(m => `<option ${m === v.month ? 'selected' : ''}>${m}</option>`).join('')}</select><input class="inp" id="bY" value="${esc(v.year)}" style="width:76px" placeholder="พ.ศ."></div>
+        <div class="row" style="margin-top:4px"><button type="button" class="btn xs" id="bToday">วันนี้</button><button type="button" class="btn xs" id="bBlank">เว้นว่างไว้เขียนเอง</button></div></div>
+      <div class="fld"><label>ฟอนต์ / ขนาด</label><div class="row">${fontPickerHTML('bF', font)}<input class="inp num" type="number" id="bS" min="8" max="40" value="${v.size}"></div></div>
+      <div class="fld"><label>สีหมึกที่พิมพ์ (ค่าที่กรอก)</label>${inkSwatches('bInk', ink)}</div>
+      <div class="fld"><label>แสดง</label><div class="row" style="gap:12px">
+        <label class="chk"><input type="checkbox" id="bSS" ${v.showSign !== false ? 'checked' : ''}> ลงชื่อ</label><label class="chk"><input type="checkbox" id="bSN" ${v.showName !== false ? 'checked' : ''}> ชื่อ</label>
+        <label class="chk"><input type="checkbox" id="bSP" ${v.showPos !== false ? 'checked' : ''}> ตำแหน่ง</label><label class="chk"><input type="checkbox" id="bSD" ${v.showDate !== false ? 'checked' : ''}> วันที่</label>
+        <label class="chk"><input type="checkbox" id="bTD" ${v.thaiDigits ? 'checked' : ''}> ใช้เลขไทย ๑๒๓</label></div></div>
+    </div>
+    <div class="fld"><label>ลายเซ็นบนเส้น "ลงชื่อ"</label><div class="row" id="bSigs"><button type="button" class="btn sm ${!sigSrc ? 'on' : ''}" data-sg="">ไม่ใส่ (เซ็นเองภายหลัง)</button>${sigs.map((s, i) => `<span class="sgsaved"><img src="${s}" data-sg="${i}" style="${s === sigSrc ? 'outline:2px solid #2563eb' : ''}"></span>`).join('')}
+      ${sigs.length ? '' : '<span class="hint">ยังไม่มีลายเซ็นที่บันทึกไว้ — สร้างได้จากปุ่ม "ลายเซ็น"</span>'}</div></div>
+    <div class="prev" style="min-height:0;padding:10px"><canvas id="bPrev" width="560" height="190" style="width:100%;max-width:560px;background:#fff"></canvas></div>`,
+    buttons: [{ label: 'ยกเลิก', value: null }, { label: o ? 'บันทึก' : 'วางลงเอกสาร', pri: true, value: bk => { const r = read(bk); try { const { sigSrc: _s, ...keep } = r; localStorage.setItem('pdfs_sigblock', JSON.stringify(keep)); } catch (e) { } return r; } }],
+    onOpen: bk => {
+      wireFontPicker('bF', f => { font = f; pv(); }); wireInk(bk, 'bInk', c => { ink = c; pv(); });
+      $$('#bSigs [data-sg]', bk).forEach(el => el.onclick = () => { sigSrc = el.dataset.sg === '' ? '' : sigs[+el.dataset.sg]; $$('#bSigs [data-sg]', bk).forEach(x => { if (x.tagName === 'IMG') x.style.outline = x.src === sigSrc ? '2px solid #2563eb' : ''; else x.classList.toggle('on', !sigSrc); }); pv(); });
+      $('#bToday', bk).onclick = () => { const t = new Date(); $('#bD', bk).value = t.getDate(); $('#bM', bk).value = TH_MONTHS[t.getMonth()]; $('#bY', bk).value = t.getFullYear() + 543; pv(); };
+      $('#bBlank', bk).onclick = () => { $('#bD', bk).value = ''; $('#bM', bk).value = ''; $('#bY', bk).value = ''; pv(); };
+      $$('input,select', bk).forEach(el => { el.addEventListener('input', pv); el.addEventListener('change', pv); });
+      pv();
+    } });
+  function read(bk) { return { name: $('#bN', bk).value.trim(), pos: $('#bP', bk).value.trim(), posLabel: $('#bPL', bk).value, day: $('#bD', bk).value.trim(), month: $('#bM', bk).value, year: $('#bY', bk).value.trim(),
+    ink, font, size: clamp(+$('#bS', bk).value || 16, 8, 40), w: (o && o.w) || 250 * clamp(+$('#bS', bk).value || 16, 8, 40) / 16, thaiDigits: $('#bTD', bk).checked,
+    showSign: $('#bSS', bk).checked, showName: $('#bSN', bk).checked, showPos: $('#bSP', bk).checked, showDate: $('#bSD', bk).checked, sigSrc }; }
+  async function pv() { const bk = $$('.mback').pop(); if (!bk || !$('#bPrev', bk)) return; const r = { type: 'sigblock', ...read(bk), x: 10, y: 0 };
+    await ensureSigFaces(r); const L = sigLayout(r); if (!L) return; const c = $('#bPrev', bk); const top = L.img ? Math.min(0, L.img.y) : 0;
+    const sc = Math.min(540 / (L.w + 20), 180 / (L.h - top + 14)); const g = c.getContext('2d'); g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, c.width, c.height);
+    g.setTransform(sc, 0, 0, sc, 0, (6 - top) * sc); const z = E.zoom; E.zoom = 1; drawObj(g, r); E.zoom = z; }
+}
 
 /* ---------- edit existing text ---------- */
 const normF = x => (x || '').toLowerCase().replace(/^[a-z]{6}\+/, '').replace(/[^a-z0-9]/g, '');
@@ -569,6 +671,12 @@ async function pdfObj(W, o, imgCache) {
       if (o.kind === 'dot') { const r = Math.min(o.w, o.h) * 0.3; W.push(ellipsePath(o.x + o.w / 2 - r, o.y + o.h / 2 - r, r * 2, r * 2), 'f'); }
       else markSegs(o).forEach(seg => W.push(seg.map((p, i) => `${nf(p[0])} ${nf(p[1])} ${i ? 'l' : 'm'}`).join(' ') + ' S'));
       W.push('Q'); break; }
+    case 'sigblock': { await ensureSigFaces(o); const L = sigLayout(o); begin();
+      W.push(rgbStr(o.labelColor || '#111111') + ' RG', nf(Math.max(0.6, o.size * 0.06)) + ' w 1 J', `[0 ${nf(o.size * 0.17)}] 0 d`);
+      L.dots.forEach(([a, b, y]) => W.push(`${nf(a)} ${nf(y)} m ${nf(b)} ${nf(y)} l S`)); W.push('Q');
+      if (L.img) await pdfObj(W, { type: 'image', img: o._img, src: o.sigSrc, ...L.img, opacity: 100 }, imgCache);
+      for (const t of L.texts) { const { F, ...tt } = t; await pdfText(W, { ...tt, opacity: o.opacity ?? 100 }); }
+      break; }
     case 'stamp': { const L = stampLayout(o); if (!L) { await ensureFace({ font: o.font || 'Kanit', bold: true }); await ensureFace({ font: o.font || 'Kanit' }); }
       const SL = stampLayout(o); begin(); const sw = o.size * 0.075; const ins = sw * 2.2;
       W.push(rgbStr(o.color) + ' RG', nf(sw) + ' w', rrectPdf(o.x + sw / 2, o.y + sw / 2, SL.w - sw, SL.h - sw, o.size * 0.22) + ' S', nf(sw * 0.4) + ' w', rrectPdf(o.x + ins, o.y + ins, SL.w - ins * 2, SL.h - ins * 2, o.size * 0.14) + ' S', 'Q');
