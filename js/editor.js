@@ -171,7 +171,7 @@ function renderEdit() {
             <div class="ddm" id="eStampM">${STAMPS.map(([t, c]) => `<button class="stp" data-st="${t}" data-c="${c}" style="color:${c};border-color:${c}">${t}</button>`).join('')}
               <label class="chk" style="grid-column:1/-1;margin:6px 2px 0"><input type="checkbox" id="eStDate" checked> ใส่วันที่ใต้ตรา</label>
               <button class="btn sm" id="eStCustom" style="grid-column:1/-1">${icon('edit')} ตรายางข้อความเอง…</button>
-              <button class="btn sm pri" id="eSigBlock" style="grid-column:1/-1">${icon('sign')} แบบฟอร์มลงชื่อ (ลงชื่อ / ชื่อ / ตำแหน่ง / วันที่)…</button></div></div>
+              <button class="btn sm pri" id="eSigBlock" style="grid-column:1/-1">${icon('sign')} แบบฟอร์มลงชื่อ + ชื่อ/ตำแหน่ง/วันที่</button></div></div>
           <div class="dd"><button class="btn" id="eMarkB" title="เครื่องหมาย">${icon('mark')}${icon('down', 'width="12" height="12"')}</button>
             <div class="ddm small" id="eMarkM"><button data-mk="check">✓ ถูก</button><button data-mk="cross">✗ ผิด</button><button data-mk="dot">● จุด</button><button data-dt="th">วันที่ไทย</button><button data-dt="th2">วัน/เดือน/ปี พ.ศ.</button><button data-dt="iso">วว/ดด/ปปปป ค.ศ.</button></div></div>
         </div>

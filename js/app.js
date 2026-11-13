@@ -62,7 +62,7 @@ const IC = {
 };
 const icon = (n, s = '') => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ${s}>${IC[n] || ''}</svg>`;
 
-const APP_VER = '20261113-7';
+const APP_VER = '20261113-8';
 /* ================= STATE ================= */
 const S = { bytes: null, name: '', pdf: null, ver: 0, history: [], redo: [], tool: 'home', wasLocked: false, sizes: [] };
 const main = document.getElementById('main');

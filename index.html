@@ -170,6 +170,10 @@ html.dark .banner{background:#3a2e10;border-color:#6b5317;color:#f5d48a}
 .ddm.small{width:190px;grid-template-columns:1fr}
 .ddm.small button{border:0;background:none;text-align:left;padding:8px 10px;border-radius:7px;cursor:pointer}
 .ddm.small button:hover{background:var(--panel2)}
+.etools .ddm .btn{white-space:normal;border:1px solid var(--line2);background:var(--panel);padding:8px 10px;justify-content:center}
+.etools .ddm .btn:hover{background:var(--panel2)}
+.etools .ddm .btn.pri{background:var(--acc);border-color:var(--acc);color:#fff}
+.etools .ddm .btn.pri:hover{background:var(--acc-d)}
 .stp{border:2px solid;border-radius:8px;background:var(--panel);padding:6px 4px;font-weight:700;cursor:pointer;font-size:13px}
 .stp:hover{background:var(--panel2)}
 .ed-body{flex:1;display:flex;min-height:0}
@@ -288,7 +292,7 @@ html.dark .banner{background:#3a2e10;border-color:#6b5317;color:#f5d48a}
 </head>
 <body>
 <header class="hdr">
-  <div class="logo" title="เวอร์ชัน 20261113-7"><div class="mk">PDF</div><div>PDF Studio<span class="pro">PRO</span><small>แก้ไข PDF ภาษาไทย สระไม่ลอย</small></div></div>
+  <div class="logo" title="เวอร์ชัน 20261113-8"><div class="mk">PDF</div><div>PDF Studio<span class="pro">PRO</span><small>แก้ไข PDF ภาษาไทย สระไม่ลอย</small></div></div>
   <div class="docinfo" id="docinfo"></div>
   <button class="btn dark" id="bTheme" title="โหมดมืด/สว่าง"><span data-i="moon"></span></button>
   <button class="btn dark" id="bOpen" title="เปิดไฟล์ (Ctrl+O)"><span data-i="open"></span><span class="t">เปิดไฟล์</span></button>
@@ -299,9 +303,9 @@ html.dark .banner{background:#3a2e10;border-color:#6b5317;color:#f5d48a}
 <div class="app"><nav class="nav" id="nav"></nav><main class="main" id="main"></main></div>
 <div class="busy" id="busy"><div class="bx"><div class="bt"><div class="spin"></div><div id="busyT">กำลังประมวลผล…</div></div><div class="busybar" id="busyBar" style="display:none"><i></i></div></div></div>
 <div class="toasts" id="toasts"></div>
-<script src="js/core.js?v=20261113-7"></script>
-<script src="js/app.js?v=20261113-7"></script>
-<script src="js/editor.js?v=20261113-7"></script>
+<script src="js/core.js?v=20261113-8"></script>
+<script src="js/app.js?v=20261113-8"></script>
+<script src="js/editor.js?v=20261113-8"></script>
 <script>
 (function fixH(){ // iOS home-screen apps report a short viewport; use the real screen height there
   const set = () => { let h = window.innerHeight;
