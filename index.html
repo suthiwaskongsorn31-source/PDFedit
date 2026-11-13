@@ -28,7 +28,7 @@
 html.dark{ --bg:#0f1115; --panel:#181b21; --panel2:#1e2229; --ink:#e8eaee; --ink2:#a9b0bc; --ink3:#77808d; --line:#2a2f38; --line2:#363c47; --acc-l:#3a1d1b; --hdr:#0a0c0f; --sh:none; }
 *{box-sizing:border-box}
 html,body{margin:0;height:100%}
-body{font-family:var(--thai);color:var(--ink);background:var(--bg);font-size:14px;overflow:hidden}
+body{font-family:var(--thai);color:var(--ink);background:var(--bg);font-size:14px;overflow:hidden;position:fixed;inset:0;display:flex;flex-direction:column}
 button,input,select,textarea{font:inherit;color:inherit}
 svg{flex:none}
 .muted{color:#8a909c}
@@ -57,7 +57,10 @@ svg{flex:none}
 .btn.on{background:var(--ink);color:var(--panel);border-color:var(--ink)}
 .btn svg{width:16px;height:16px}
 .btn.xs svg{width:14px;height:14px}
-.app{display:flex;height:calc(100% - 56px - env(safe-area-inset-top));padding-bottom:env(safe-area-inset-bottom)}
+.app{display:flex;flex:1;min-height:0}
+.hdr{flex:none}
+.wrap{padding-bottom:calc(60px + env(safe-area-inset-bottom))!important}
+.epages{padding-bottom:calc(80px + env(safe-area-inset-bottom))!important}
 body{-webkit-text-size-adjust:100%}
 /* nav */
 .nav{width:226px;background:var(--panel);border-right:1px solid var(--line);padding:10px 10px 20px;overflow:auto;flex:none}
