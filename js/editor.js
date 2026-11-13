@@ -264,7 +264,7 @@ function wireEditUI() {
   $('#oFront').onclick = () => reorder(1); $('#oBack').onclick = () => reorder(-1);
   $('#eImg').onclick = async () => { const f = (await pickFiles({ accept: 'image/*', multiple: false }))[0]; if (f) placeImage(await fileToDataURL(f), 220); };
   $('#eSign').onclick = signatureDialog;
-  const dd = (b, m) => { $(b).onclick = e => { e.stopPropagation(); const open = $(m).classList.toggle('open'); $$('.ddm').forEach(x => { if (x !== $(m)) x.classList.remove('open'); }); if (open) setTimeout(() => document.addEventListener('pointerdown', function h(ev) { if (!ev.target.closest('.dd')) { $(m)?.classList.remove('open'); document.removeEventListener('pointerdown', h); } }), 0); }; };
+  const dd = (b, m) => { $(b).onclick = e => { e.stopPropagation(); const open = $(m).classList.toggle('open'); if (open) { const r = $(b).getBoundingClientRect(), mm = $(m); mm.style.position = 'fixed'; mm.style.top = (r.bottom + 6) + 'px'; mm.style.left = Math.max(8, Math.min(r.left, innerWidth - mm.offsetWidth - 8)) + 'px'; mm.style.maxHeight = (innerHeight - r.bottom - 20) + 'px'; mm.style.overflowY = 'auto'; } $$('.ddm').forEach(x => { if (x !== $(m)) x.classList.remove('open'); }); if (open) setTimeout(() => document.addEventListener('pointerdown', function h(ev) { if (!ev.target.closest('.dd')) { $(m)?.classList.remove('open'); document.removeEventListener('pointerdown', h); } }), 0); }; };
   dd('#eStampB', '#eStampM'); dd('#eMarkB', '#eMarkM');
   $$('[data-st]').forEach(b => b.onclick = async () => { $('#eStampM').classList.remove('open');
     const o = { type: 'stamp', label: b.dataset.st, sub: $('#eStDate').checked ? thaiLongDate() : '', color: b.dataset.c, size: 22, font: 'Kanit', opacity: 90 };

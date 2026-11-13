@@ -62,6 +62,7 @@ const IC = {
 };
 const icon = (n, s = '') => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ${s}>${IC[n] || ''}</svg>`;
 
+const APP_VER = '20261113-7';
 /* ================= STATE ================= */
 const S = { bytes: null, name: '', pdf: null, ver: 0, history: [], redo: [], tool: 'home', wasLocked: false, sizes: [] };
 const main = document.getElementById('main');
@@ -240,7 +241,7 @@ function renderHome() {
     <div class="hero"><div><h1>${S.tool === 'home' || !t ? 'จัดการและแก้ไข PDF แบบมืออาชีพ' : esc(t[2])}</h1>
     <p class="sub">${S.tool === 'home' || !t ? 'ภาษาไทยสระ-วรรณยุกต์ไม่ลอย · ฟอนต์ไทย 33 ตระกูล หนา/เอียงครบ · ประมวลผลในเครื่องคุณ 100%' : 'เปิดไฟล์ PDF ก่อนเพื่อใช้เครื่องมือนี้'}</p></div></div>
     ${dropZone()}
-    <div class="privacy">${icon('shield', 'width="15" height="15"')} ไฟล์ไม่ถูกอัปโหลดไปที่ใด ทุกอย่างทำงานในเบราว์เซอร์ของคุณ</div>
+    <div class="privacy">${icon('shield', 'width="15" height="15"')} ไฟล์ไม่ถูกอัปโหลดไปที่ใด ทุกอย่างทำงานในเบราว์เซอร์ของคุณ · เวอร์ชัน ${APP_VER}</div>
     <div class="feat">${TOOLS.filter(x => x[0] !== 'g').map(f => `<div class="f" data-t="${f[0]}">${icon(f[1])}<div><b>${f[2]}</b><span>${f[3]}</span></div></div>`).join('')}</div>
   </div>`;
   wireDrop();
