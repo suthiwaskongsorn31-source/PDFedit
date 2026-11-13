@@ -8,6 +8,8 @@
 - แก้ข้อความเดิมในไฟล์ (ตรวจจับฟอนต์/ขนาด/สี และลบข้อความเก่าออกจริง)
 - พิมพ์ข้อความไทย สระ-วรรณยุกต์ไม่ลอย (จัดตัวอักษรด้วย HarfBuzz)
 - ฟอนต์ไทย 33 ตระกูล หนา/เอียง — TH Sarabun New, TH SarabunPSK, Sarabun, Kanit, Prompt ฯลฯ
+- ฟอนต์แทน Microsoft ที่ความกว้างตัวอักษรเท่ากัน: Arial → Liberation Sans, Times New Roman → Liberation Serif, Courier New → Liberation Mono, Calibri → Carlito, Cambria → Caladea
+- เพิ่มฟอนต์ของคุณเองจากเครื่อง (.ttf .otf .ttc เช่น Angsana New, Cordia New, Tahoma จาก `C:\Windows\Fonts`) — เก็บในเบราว์เซอร์เครื่องนั้นเท่านั้น ไม่อยู่ใน repo
 - ปากกา ไฮไลต์ รูปทรง ลูกศร รูปภาพ ลายเซ็น (วาด/พิมพ์/อัปโหลด) ตรายาง
 - ปิดข้อมูลถาวร (Redact), ค้นหาในเอกสาร
 - กรอกฟอร์ม PDF ภาษาไทย, ลายน้ำ, หัว-ท้ายกระดาษ & เลขหน้า
@@ -46,6 +48,8 @@ python3 -m http.server 8000
 - [@cantoo/pdf-lib](https://github.com/cantoo-scribe/pdf-lib), [@cantoo/fontkit](https://github.com/cantoo-scribe/fontkit) (MIT)
 - [PDF.js](https://github.com/mozilla/pdf.js) (Apache-2.0), [JSZip](https://github.com/Stuk/jszip) (MIT)
 - [HarfBuzz / harfbuzzjs](https://github.com/harfbuzz/harfbuzzjs) (MIT), [Tesseract.js](https://github.com/naptha/tesseract.js) (Apache-2.0)
-- ฟอนต์ Google Fonts: SIL Open Font License 1.1 · TH Sarabun New / TH SarabunPSK: สัญญาอนุญาต SIPA (`fonts/LICENSE-SIPA.txt`)
+- ฟอนต์ Google Fonts, Liberation, Carlito, Caladea: SIL Open Font License 1.1 · TH Sarabun New / TH SarabunPSK: สัญญาอนุญาต SIPA (`fonts/LICENSE-SIPA.txt`)
 
 > หมายเหตุ: `lib/ocr/worker.min.js` แก้ไขจากต้นฉบับ 1 จุด (แก้บั๊กการส่งข้อมูลภาษาแบบ object ใน initialize)
+
+> ฟอนต์ของ Microsoft มีลิขสิทธิ์ จึงไม่ได้ใส่ไว้ใน repo — ผู้ใช้เพิ่มเองจากเครื่องที่มีสิทธิ์ใช้งานได้

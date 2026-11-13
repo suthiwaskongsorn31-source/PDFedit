@@ -161,8 +161,10 @@ function wireFontPicker(id, onChange) {
   btn.onclick = e => {
     e.stopPropagation(); closeFontPop();
     const pop = document.createElement('div'); pop.className = 'fp-pop'; pop.id = 'fpPop';
-    pop.innerHTML = `<input class="inp" placeholder="ค้นหาฟอนต์…" id="fpQ"><div class="fp-list">${FONT_CATS.map(([cat, list]) => `<div class="fp-cat">${cat}</div>` +
-      list.map(([n, f]) => `<div class="fp-row ${f === btn.dataset.font ? 'on' : ''}" data-f="${f}" data-n="${n.toLowerCase()}"><div class="fp-nm">${esc(n)}<span class="fp-st">${(FONT_FILES[f].includes('B') ? '<b>B</b>' : '') + (FONT_FILES[f].includes('I') ? '<i>I</i>' : '')}</span></div><div class="fp-sm">สวัสดีครับ ภาษาไทย ที่นี่ ปู่ ฎีกา 123 Aa</div></div>`).join('')).join('')}</div>`;
+    pop.innerHTML = `<input class="inp" placeholder="ค้นหาฟอนต์…" id="fpQ"><button class="btn sm fp-add" id="fpAdd">${icon('plus')} เพิ่มฟอนต์จากเครื่อง (.ttf .otf .ttc)</button><div class="fp-list">${FONT_CATS.map(c => { const [cat, list] = c; return `<div class="fp-cat">${cat}</div>` +
+      (c.user && !list.length ? '' : '') +
+      list.map(([n, f]) => `<div class="fp-row ${f === btn.dataset.font ? 'on' : ''}" data-f="${f}" data-n="${n.toLowerCase()}"><div class="fp-nm">${esc(n)}<span class="fp-st">${(FONT_FILES[f].includes('B') ? '<b>B</b>' : '') + (FONT_FILES[f].includes('I') ? '<i>I</i>' : '')}${c.user ? `<button class="fp-del" data-del="${f}" title="ลบฟอนต์นี้ออกจากเครื่องนี้">✕</button>` : ''}</span></div><div class="fp-sm">${/^(Liberation|Carlito|Caladea)/.test(f) ? 'The quick brown fox 123 สวัสดี' : 'สวัสดีครับ ภาษาไทย ที่นี่ ปู่ ฎีกา 123 Aa'}</div></div>`).join(''); }).join('')}
+      <div class="fp-help">ใช้ฟอนต์ของ Microsoft / Windows ได้: กด <b>เพิ่มฟอนต์จากเครื่อง</b> แล้วเลือกไฟล์จาก <code>C:\\Windows\\Fonts</code> (เช่น Angsana New, Cordia New, Tahoma) — ฟอนต์จะเก็บไว้ในเบราว์เซอร์เครื่องนี้เท่านั้น ไม่ถูกอัปโหลด</div></div>`;
     document.body.appendChild(pop);
     const r = btn.getBoundingClientRect(); const ph = Math.min(440, innerHeight - 40);
     pop.style.left = clamp(r.left, 8, innerWidth - 340) + 'px'; pop.style.maxHeight = ph + 'px';
@@ -170,6 +172,9 @@ function wireFontPicker(id, onChange) {
     const fio = new IntersectionObserver(ents => ents.forEach(en => { if (!en.isIntersecting) return; fio.unobserve(en.target);
       const f = en.target.dataset.f; loadFaceData(f + '-Regular').then(d => { const sm = $('.fp-sm', en.target); sm.style.fontFamily = d.css; if (/^THSarabun/.test(f)) sm.style.fontSize = '25px'; }).catch(() => { }); }), { root: $('.fp-list', pop) });
     $$('.fp-row', pop).forEach(row => { fio.observe(row); row.onclick = () => { setBtn(row.dataset.f); closeFontPop(); onChange(row.dataset.f); }; });
+    $('#fpAdd', pop).onclick = async ev => { ev.stopPropagation(); const fs = await pickFiles({ accept: '.ttf,.otf,.ttc,font/ttf,font/otf,font/collection', multiple: true }); if (!fs.length) return;
+      const added = await addUserFontFiles(fs); if (!added.length) return; closeFontPop(); btn.click(); };
+    $$('[data-del]', pop).forEach(b => b.onclick = ev => { ev.stopPropagation(); const f = b.dataset.del; removeUserFamily(f); toast('ลบฟอนต์แล้ว'); closeFontPop(); btn.click(); });
     $('#fpQ', pop).oninput = ev => { const q = ev.target.value.toLowerCase(); $$('.fp-row', pop).forEach(r => r.style.display = r.dataset.n.includes(q) ? '' : 'none'); };
     pop.addEventListener('pointerdown', ev => ev.stopPropagation());
     setTimeout(() => $('#fpQ', pop).focus(), 20);
@@ -1054,6 +1059,6 @@ function initShell() {
     else if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); downloadCurrent(); }
     else if (mod && e.key.toLowerCase() === 'o') { e.preventDefault(); $('#bOpen').click(); }
   });
-  loadFaceData('THSarabunNew-Regular').catch(() => { }); loadFaceData('Kanit-Bold').catch(() => { });
+  loadFaceData('THSarabunNew-Regular').catch(() => { }); loadFaceData('Kanit-Bold').catch(() => { }); ufLoadSaved();
   updateHeader(); renderTool();
 }

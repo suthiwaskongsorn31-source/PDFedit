@@ -95,13 +95,57 @@ async function saveZip(files, zipName) {
 /* =====================================================================
    FONT ENGINE — HarfBuzz shaping (Thai marks positioned correctly)
    ===================================================================== */
-const FONT_FILES = {"Athiti":"BR","BaiJamjuree":"BIRX","ChakraPetch":"BIRX","Charm":"BR","Charmonman":"BR","Chonburi":"R","Fahkwang":"BIRX","IBMPlexSansThai":"BR","IBMPlexSansThaiLooped":"BR","Itim":"R","K2D":"BIRX","Kanit":"BIRX","KoHo":"BIRX","Kodchasan":"BIRX","Krub":"BIRX","Maitree":"BR","Mali":"BIRX","Mitr":"BR","Niramit":"BIRX","NotoSansThai":"BR","NotoSansThaiLooped":"BR","NotoSerifThai":"BR","Pattaya":"R","Pridi":"BR","Prompt":"BIRX","Sarabun":"BIRX","Sriracha":"R","Srisakdi":"BR","THSarabunNew":"BIRX","THSarabunPSK":"BIRX","Taviraj":"BIRX","Thasadith":"BIRX","Trirong":"BIRX"};
+const FONT_FILES = {"Athiti":"BR","BaiJamjuree":"BIRX","ChakraPetch":"BIRX","Charm":"BR","Charmonman":"BR","Chonburi":"R","Fahkwang":"BIRX","IBMPlexSansThai":"BR","IBMPlexSansThaiLooped":"BR","Itim":"R","K2D":"BIRX","Kanit":"BIRX","KoHo":"BIRX","Kodchasan":"BIRX","Krub":"BIRX","Maitree":"BR","Mali":"BIRX","Mitr":"BR","Niramit":"BIRX","NotoSansThai":"BR","NotoSansThaiLooped":"BR","NotoSerifThai":"BR","Pattaya":"R","Pridi":"BR","Prompt":"BIRX","Sarabun":"BIRX","Sriracha":"R","Srisakdi":"BR","THSarabunNew":"BIRX","THSarabunPSK":"BIRX","Taviraj":"BIRX","Thasadith":"BIRX","Trirong":"BIRX","LiberationSans":"BIRX","LiberationSerif":"BIRX","LiberationMono":"BIRX","Carlito":"BIRX","Caladea":"BIRX"};
 const FONT_CATS = [
   ['เอกสาร / ราชการ', [['TH Sarabun New', 'THSarabunNew'], ['TH SarabunPSK', 'THSarabunPSK'], ['Sarabun', 'Sarabun'], ['Noto Sans Thai', 'NotoSansThai'], ['Noto Sans Thai Looped', 'NotoSansThaiLooped'], ['Noto Serif Thai', 'NotoSerifThai'], ['IBM Plex Sans Thai', 'IBMPlexSansThai'], ['IBM Plex Sans Thai Looped', 'IBMPlexSansThaiLooped'], ['Taviraj', 'Taviraj'], ['Trirong', 'Trirong'], ['Pridi', 'Pridi'], ['Maitree', 'Maitree'], ['Athiti', 'Athiti'], ['Thasadith', 'Thasadith']]],
   ['โมเดิร์น / หัวเรื่อง', [['Kanit', 'Kanit'], ['Prompt', 'Prompt'], ['Mitr', 'Mitr'], ['Chakra Petch', 'ChakraPetch'], ['Bai Jamjuree', 'BaiJamjuree'], ['K2D', 'K2D'], ['Krub', 'Krub'], ['KoHo', 'KoHo'], ['Niramit', 'Niramit'], ['Kodchasan', 'Kodchasan'], ['Fahkwang', 'Fahkwang'], ['Chonburi', 'Chonburi']]],
+  ['แทนฟอนต์ Microsoft (ความกว้างเท่ากันทุกตัวอักษร)', [['Arial → Liberation Sans', 'LiberationSans'], ['Times New Roman → Liberation Serif', 'LiberationSerif'], ['Courier New → Liberation Mono', 'LiberationMono'], ['Calibri → Carlito', 'Carlito'], ['Cambria → Caladea', 'Caladea']]],
   ['ลายมือ / ตกแต่ง', [['Mali', 'Mali'], ['Itim', 'Itim'], ['Sriracha', 'Sriracha'], ['Charm', 'Charm'], ['Charmonman', 'Charmonman'], ['Srisakdi', 'Srisakdi'], ['Pattaya', 'Pattaya']]],
 ];
 const FONT_NAME = {}; FONT_CATS.forEach(c => c[1].forEach(([n, f]) => FONT_NAME[f] = n));
+const SERIF_FONTS = new Set(['LiberationSerif', 'Caladea', 'Taviraj', 'Trirong', 'Pridi', 'Maitree', 'NotoSerifThai']);
+
+/* ---------- user fonts (from the user's own computer, kept only in this browser) ---------- */
+const USER_FONTS = {};   // key 'U_xxx-Style' -> {bytes, index}
+const USER_FAMS = {};    // file 'U_xxx' -> {name, styles}
+const UF_DB = 'pdfstudio-fonts';
+function ufDB() { return new Promise((res, rej) => { try { const r = indexedDB.open(UF_DB, 1); r.onupgradeneeded = () => r.result.createObjectStore('fonts', { keyPath: 'key' }); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); } catch (e) { rej(e); } }); }
+async function ufAll() { try { const db = await ufDB(); return await new Promise(res => { const out = []; const c = db.transaction('fonts').objectStore('fonts').openCursor(); c.onsuccess = () => { const cur = c.result; if (cur) { out.push(cur.value); cur.continue(); } else res(out); }; c.onerror = () => res(out); }); } catch (e) { return []; } }
+async function ufPut(rec) { try { const db = await ufDB(); await new Promise(res => { const t = db.transaction('fonts', 'readwrite'); t.objectStore('fonts').put(rec); t.oncomplete = res; t.onerror = res; }); } catch (e) { } }
+async function ufDel(key) { try { const db = await ufDB(); await new Promise(res => { const t = db.transaction('fonts', 'readwrite'); t.objectStore('fonts').delete(key); t.oncomplete = res; t.onerror = res; }); } catch (e) { } }
+function ufRegister(rec) {
+  USER_FONTS[rec.key] = { bytes: rec.bytes, index: rec.index || 0 };
+  const file = rec.key.replace(/-(Regular|Bold|Italic|BoldItalic)$/, ''); const L = { Regular: 'R', Bold: 'B', Italic: 'I', BoldItalic: 'X' }[rec.style];
+  const fam = USER_FAMS[file] || (USER_FAMS[file] = { name: rec.family, styles: '' }); if (!fam.styles.includes(L)) fam.styles += L;
+  FONT_FILES[file] = fam.styles.includes('R') ? fam.styles : fam.styles + 'R'; FONT_NAME[file] = rec.family;
+  if (!fam.styles.includes('R')) USER_FONTS[file + '-Regular'] = USER_FONTS[rec.key]; // use any style as base
+  let cat = FONT_CATS.find(c => c.user); if (!cat) { cat = ['ฟอนต์ของฉัน (จากเครื่องนี้)', []]; cat.user = true; FONT_CATS.unshift(cat); }
+  if (!cat[1].some(x => x[1] === file)) cat[1].push([rec.family, file]);
+}
+async function ufLoadSaved() { (await ufAll()).forEach(ufRegister); }
+const ufSlug = s => 'U_' + s.replace(/[^A-Za-z0-9]/g, '') + (s.replace(/[^A-Za-z0-9]/g, '') ? '' : Math.abs([...s].reduce((h, c) => (h * 31 + c.charCodeAt(0)) | 0, 7)));
+async function addUserFontFiles(files) {
+  const added = [];
+  for (const f of files) {
+    if (!/\.(ttf|otf|ttc)$/i.test(f.name)) { toast('รองรับเฉพาะ .ttf .otf .ttc: ' + f.name, 'err'); continue; }
+    const bytes = new Uint8Array(await f.arrayBuffer()); let fonts;
+    try { const x = FK.create(bytes); fonts = x.fonts ? x.fonts : [x]; } catch (e) { toast('อ่านฟอนต์ไม่ได้: ' + f.name, 'err'); continue; }
+    fonts.forEach((fk, index) => {
+      const family = (fk.familyName || f.name.replace(/\.\w+$/, '')).trim(); const sub = (fk.subfamilyName || 'Regular');
+      const b = /bold|black|heavy/i.test(sub), it = /italic|oblique/i.test(sub);
+      const style = b && it ? 'BoldItalic' : b ? 'Bold' : it ? 'Italic' : 'Regular';
+      const rec = { key: ufSlug(family) + '-' + style, family, style, bytes, index };
+      delete FACE_P[rec.key]; delete FACE[rec.key];
+      ufRegister(rec); ufPut(rec); added.push(family + ' ' + style);
+    });
+  }
+  if (added.length) toast('เพิ่มฟอนต์แล้ว: ' + [...new Set(added)].join(', '), 'ok');
+  return added;
+}
+function removeUserFamily(file) {
+  ['Regular', 'Bold', 'Italic', 'BoldItalic'].forEach(st => { const k = file + '-' + st; delete USER_FONTS[k]; delete FACE[k]; delete FACE_P[k]; ufDel(k); });
+  delete USER_FAMS[file]; delete FONT_FILES[file]; const cat = FONT_CATS.find(c => c.user); if (cat) cat[1] = cat[1].filter(x => x[1] !== file);
+}
 const DEFAULT_FONT = 'THSarabunNew';
 
 let HB = null, HBP = null;
@@ -122,18 +166,23 @@ function faceKey(file, bold, italic) { const [st] = styleFor(file, bold, italic)
 function loadFaceData(key) {
   if (FACE_P[key]) return FACE_P[key];
   return FACE_P[key] = (async () => {
-    const [res] = await Promise.all([fetch(BASE + 'fonts/' + key + '.ttf'), initHB()]);
-    if (!res.ok) throw new Error('โหลดฟอนต์ไม่สำเร็จ: ' + key);
-    const buf = await res.arrayBuffer();
-    const d = { key, bytes: new Uint8Array(buf), paths: new Map(), p2d: new Map(), shapes: new Map() };
-    d.fk = FK.create(d.bytes);
+    let buf, index = 0;
+    if (USER_FONTS[key]) { await initHB(); buf = USER_FONTS[key].bytes.slice().buffer; index = USER_FONTS[key].index || 0; }
+    else { const [res] = await Promise.all([fetch(BASE + 'fonts/' + key + '.ttf'), initHB()]);
+      if (!res.ok) throw new Error('โหลดฟอนต์ไม่สำเร็จ: ' + key); buf = await res.arrayBuffer(); }
+    const d = { key, bytes: new Uint8Array(buf), paths: new Map(), p2d: new Map(), shapes: new Map(), index };
+    { const x = FK.create(d.bytes); d.fk = x.fonts ? x.fonts[index] : x; d.ttc = !!x.fonts; }
     d.upem = d.fk.unitsPerEm;
     const hh = d.fk.hhea || {};
     d.asc = (hh.ascent ?? d.fk.ascent) / d.upem; d.desc = Math.abs(hh.descent ?? d.fk.descent) / d.upem;
     if (!(d.asc > 0.3)) d.asc = 0.9; if (!(d.desc > 0.05)) d.desc = 0.3;
-    if (HB) { try { d.hb = new HB.Font(new HB.Face(new HB.Blob(buf))); } catch (e) { console.warn(e); } }
+    if (HB) { try { d.hb = new HB.Font(new HB.Face(new HB.Blob(buf), index)); } catch (e) { console.warn(e); } }
+    // fonts without Thai glyphs (Liberation, Arial, Calibri…) fall back to a matching Thai font for Thai runs
+    try { d.hasThai = d.fk.hasGlyphForCodePoint(0x0E01); } catch (e) { d.hasThai = true; }
+    if (!d.hasThai) { const fam = key.replace(/-(Regular|Bold|Italic|BoldItalic)$/, ''); const bold = /Bold/.test(key);
+      try { d.fb = await loadFaceData((SERIF_FONTS.has(fam) ? 'NotoSerifThai' : 'NotoSansThai') + (bold ? '-Bold' : '-Regular')); } catch (e) { } }
     d.css = 'PF_' + key.replace(/[^A-Za-z0-9]/g, '_');
-    try { const ff = new FontFace(d.css, buf.slice(0)); await ff.load(); document.fonts.add(ff); } catch (e) { }
+    if (!d.ttc) { try { const ff = new FontFace(d.css, buf.slice(0)); await ff.load(); document.fonts.add(ff); } catch (e) { } }
     FACE[key] = d; return d;
   })().catch(e => { delete FACE_P[key]; throw e; });
 }
@@ -167,6 +216,17 @@ function shapeRun(d, text) {
   if (d.shapes.size > 3000) d.shapes.clear();
   d.shapes.set(text, gl); return gl;
 }
+const THAI_RUN = /[\u0E00-\u0E7F]+(?:[ \u00A0]+[\u0E00-\u0E7F]+)*/g;
+/* shape with per-glyph face: Thai runs go to the fallback font when the main font has no Thai */
+function shapeMixed(d, text) {
+  if (!d.fb || !/[\u0E00-\u0E7F]/.test(text)) { const gl = shapeRun(d, text); if (gl.length && !gl[0].d) gl.forEach(g => g.d = d); return gl; }
+  const ck = '\u0002' + text; let r = d.shapes.get(ck); if (r) return r;
+  const out = []; let last = 0; let m; THAI_RUN.lastIndex = 0;
+  const push = (face, str, off) => { if (!str) return; shapeRun(face, str).forEach(g => out.push({ ...g, cl: g.cl + off, d: face })); };
+  while ((m = THAI_RUN.exec(text))) { push(d, text.slice(last, m.index), last); push(d.fb, m[0], m.index); last = m.index + m[0].length; }
+  push(d, text.slice(last), last);
+  d.shapes.set(ck, out); return out;
+}
 function glyphSVG(d, g) {
   let s = d.paths.get(g); if (s !== undefined) return s;
   try { s = d.hb ? d.hb.glyphToPath(g) : d.fk.getGlyph(g).path.toSVG(); } catch (e) { s = ''; }
@@ -181,8 +241,8 @@ function glyphCmds(d, g) {
 }
 // measure width (font units → points) honouring letter spacing per cluster
 function runWidth(d, gl, size, sp) {
-  const s = size / d.upem; let w = 0;
-  for (let i = 0; i < gl.length; i++) { w += gl[i].ax * s; if (sp && (i === gl.length - 1 || gl[i + 1].cl !== gl[i].cl)) w += sp; }
+  let w = 0;
+  for (let i = 0; i < gl.length; i++) { w += gl[i].ax * size / (gl[i].d || d).upem; if (sp && (i === gl.length - 1 || gl[i + 1].cl !== gl[i].cl)) w += sp; }
   return w;
 }
 const SEG_W = (typeof Intl !== 'undefined' && Intl.Segmenter) ? new Intl.Segmenter('th', { granularity: 'word' }) : null;
@@ -193,7 +253,7 @@ function layoutText(o, F) {
   const d = F.d; const sp = (o.ls || 0) * o.size / 100;
   const key = [o.text, o.size, o.boxW || 0, o.align || 'left', o.lh || 1, o.ls || 0, d.key].join('\u0001');
   let L = LAYOUTS.get(key); if (L) return L;
-  const W = str => runWidth(d, shapeRun(d, str), o.size, sp);
+  const W = str => runWidth(d, shapeMixed(d, str), o.size, sp);
   const lines = [];
   for (const para of String(o.text ?? '').split('\n')) {
     if (!o.boxW || !para) { lines.push(para); continue; }
@@ -211,7 +271,7 @@ function layoutText(o, F) {
     lines.push(cur.replace(/\s+$/, ''));
   }
   const adv = o.size * (d.asc + d.desc) * (o.lh || 1);
-  const out = lines.map(str => { const gl = shapeRun(d, str || ' '); return { str, gl: str ? gl : [], w: str ? runWidth(d, gl, o.size, sp) : 0 }; });
+  const out = lines.map(str => { const gl = shapeMixed(d, str || ' '); return { str, gl: str ? gl : [], w: str ? runWidth(d, gl, o.size, sp) : 0 }; });
   const w = o.boxW || Math.max(4, ...out.map(l => l.w));
   const ascOff = (adv - o.size * (d.asc + d.desc)) / 2 + o.size * d.asc; // CSS-like half leading
   L = { lines: out, adv, asc: ascOff, w, h: Math.max(1, out.length) * adv, sp };
@@ -220,7 +280,7 @@ function layoutText(o, F) {
 const ITALIC_K = 0.2;
 /* iterate positioned glyphs: cb(gid, penX, baseline, scale) */
 function forEachGlyph(o, F, L, cb) {
-  const d = F.d, s = o.size / d.upem;
+  const d0 = F.d;
   L.lines.forEach((ln, i) => {
     const base = o.y + L.asc + i * L.adv;
     let x = o.x; const al = o.align || 'left';
@@ -228,7 +288,8 @@ function forEachGlyph(o, F, L, cb) {
     ln.x = x; ln.base = base;
     let pen = x;
     ln.gl.forEach((g, k) => {
-      cb(g.g, pen + g.dx * s, base - g.dy * s, s);
+      const gd = g.d || d0, s = o.size / gd.upem;
+      cb(g.g, pen + g.dx * s, base - g.dy * s, s, gd);
       pen += g.ax * s; if (L.sp && (k === ln.gl.length - 1 || ln.gl[k + 1].cl !== g.cl)) pen += L.sp;
     });
   });
@@ -240,10 +301,10 @@ function canvasText(g, o, F) {
   g.save(); g.fillStyle = o.color || '#000';
   const synthI = F.si, synthB = F.sb;
   if (synthB) { g.strokeStyle = o.color || '#000'; g.lineJoin = 'round'; }
-  forEachGlyph(o, F, L, (gid, X, Y, s) => {
+  forEachGlyph(o, F, L, (gid, X, Y, s, gd) => {
     g.save(); g.translate(X, Y); if (synthI) g.transform(1, 0, -ITALIC_K, 1, 0, 0); g.scale(s, -s);
-    const p = glyphPath2D(d, gid); g.fill(p);
-    if (synthB) { g.lineWidth = d.upem * 0.035; g.stroke(p); }
+    const p = glyphPath2D(gd, gid); g.fill(p);
+    if (synthB) { g.lineWidth = gd.upem * 0.035; g.stroke(p); }
     g.restore();
   });
   if (o.underline || o.strike) {
@@ -321,10 +382,10 @@ function invisibleText(W, font, str, x, base, size, targetW) {
 /* glyph outlines → PDF path operators */
 function pdfGlyphs(W, o, F, L) {
   const d = F.d; const parts = []; const k = F.si ? ITALIC_K : 0;
-  forEachGlyph(o, F, L, (gid, X, Y, s) => {
+  forEachGlyph(o, F, L, (gid, X, Y, s, gd) => {
     const T = (gx, gy) => nf(X + s * (gx + k * gy)) + ' ' + nf(Y - s * gy);
     let cx = 0, cy = 0;
-    for (const [op, n] of glyphCmds(d, gid)) {
+    for (const [op, n] of glyphCmds(gd, gid)) {
       if (op === 'M') { parts.push(T(n[0], n[1]) + ' m'); cx = n[0]; cy = n[1]; }
       else if (op === 'L') { parts.push(T(n[0], n[1]) + ' l'); cx = n[0]; cy = n[1]; }
       else if (op === 'Q') { const [qx, qy, x, y] = n; parts.push(T(cx + 2 / 3 * (qx - cx), cy + 2 / 3 * (qy - cy)) + ' ' + T(x + 2 / 3 * (qx - x), y + 2 / 3 * (qy - y)) + ' ' + T(x, y) + ' c'); cx = x; cy = y; }
@@ -349,7 +410,13 @@ async function pdfText(W, o, { searchable = true } = {}) {
     if (o.underline) W.push(`${nf(ln.x)} ${nf(ln.base + o.size * 0.12)} ${nf(ln.w)} ${nf(th)} re f`);
     if (o.strike) W.push(`${nf(ln.x)} ${nf(ln.base - o.size * 0.28)} ${nf(ln.w)} ${nf(th)} re f`); });
   W.push('Q');
-  if (searchable) { const font = await embedTextFont(W.doc, F.d); L.lines.forEach(ln => invisibleText(W, font, ln.str, ln.x, ln.base, o.size, ln.w)); }
+  if (searchable) for (const ln of L.lines) { // split by face so mixed Thai/Latin lines stay searchable
+    if (!ln.str || !ln.gl.length) continue; const groups = []; let pen = ln.x, cur = null;
+    ln.gl.forEach((g, k) => { const gd = g.d || F.d; if (!cur || cur.d !== gd) { cur = { d: gd, cl: g.cl, x: pen }; groups.push(cur); }
+      pen += g.ax * o.size / gd.upem + (L.sp && (k === ln.gl.length - 1 || ln.gl[k + 1].cl !== g.cl) ? L.sp : 0); cur.end = pen; });
+    for (let i = 0; i < groups.length; i++) { const gr = groups[i]; const str = groups.length === 1 ? ln.str : ln.str.slice(gr.cl, i + 1 < groups.length ? groups[i + 1].cl : undefined);
+      invisibleText(W, await embedTextFont(W.doc, gr.d), str, gr.x, ln.base, o.size, gr.end - gr.x); }
+  }
   return L;
 }
 

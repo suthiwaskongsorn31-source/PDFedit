@@ -378,15 +378,28 @@ function onDbl(e, P) { if (E.tool !== 'select') return; const p = ptOf(e, P); co
     buttons: [{ label: 'ยกเลิก', value: null }, { label: 'ตกลง', pri: true, value: bk => [$('#sl', bk).value, $('#ss', bk).value] }] }).then(v => { if (!v) return; pushUndo(); o.label = v[0] || o.label; o.sub = v[1]; redraw(P.pi); }); } }
 
 /* ---------- edit existing text ---------- */
+const normF = x => (x || '').toLowerCase().replace(/^[a-z]{6}\+/, '').replace(/[^a-z0-9]/g, '');
 function guessFont(name, str) {
-  const s = (name || '').toLowerCase().replace(/[^a-z]/g, '');
+  const s = normF(name);
+  // 1) fonts the user added from their own computer (exact family match)
+  for (const [file, fam] of Object.entries(USER_FAMS)) { const n = normF(fam.name); if (n && s.includes(n)) return file; }
+  // 2) bundled fonts
   if (/sarabunpsk|thsarabunpsk/.test(s)) return 'THSarabunPSK'; if (/sarabunnew|thsarabun/.test(s)) return 'THSarabunNew';
-  for (const f of Object.keys(FONT_FILES).sort((a, b) => b.length - a.length)) if (s.includes(f.toLowerCase())) return f;
+  for (const f of Object.keys(FONT_FILES).filter(f => !f.startsWith('U_')).sort((a, b) => b.length - a.length)) if (s.includes(f.toLowerCase())) return f;
+  // 3) Microsoft fonts → metric-compatible equivalents
+  const thai = /[\u0E00-\u0E7F]/.test(str);
+  if (/arial|helvetica|arimo|liberationsans/.test(s)) return 'LiberationSans';
+  if (/timesnewroman|times|tinos|liberationserif/.test(s)) return 'LiberationSerif';
+  if (/courier|cousine|liberationmono|consolas/.test(s)) return 'LiberationMono';
+  if (/calibri|carlito/.test(s)) return 'Carlito';
+  if (/cambria|caladea/.test(s)) return 'Caladea';
   if (/angsana|cordia|browallia|eucrosia|freesia|iris|jasmine|lily|kodchiang/.test(s)) return 'THSarabunNew';
-  if (/tahoma|leelawadee|leelawad|arial|helvetica|calibri|segoe|verdana|sans/.test(s)) return 'NotoSansThai';
-  if (/times|georgia|serif|cambria|garamond/.test(s)) return 'NotoSerifThai';
-  return /[฀-๿]/.test(str) ? 'THSarabunNew' : 'NotoSansThai';
+  if (/tahoma|leelawadee|leelawad|segoe|verdana|microsoftsansserif|sans/.test(s)) return 'NotoSansThai';
+  if (/georgia|serif|garamond|bookantiqua/.test(s)) return 'NotoSerifThai';
+  return thai ? 'THSarabunNew' : 'LiberationSans';
 }
+const MS_HINT = [[/angsana/, 'Angsana New'], [/cordia/, 'Cordia New'], [/browallia/, 'Browallia New'], [/tahoma/, 'Tahoma'], [/leelawadee|leelawad/, 'Leelawadee'], [/microsoftsansserif/, 'Microsoft Sans Serif'], [/eucrosia/, 'EucrosiaUPC'], [/segoe/, 'Segoe UI'], [/verdana/, 'Verdana'], [/georgia/, 'Georgia']];
+function msFontHint(name) { const s = normF(name); if (Object.values(USER_FAMS).some(f => s.includes(normF(f.name)))) return null; const h = MS_HINT.find(([re]) => re.test(s)); return h ? h[1] : null; }
 function sampleColors(P, l) {
   const g = P.base.getContext('2d'); const k = E.zoom * DPR;
   const x = Math.max(0, Math.floor((l.x - 2) * k)), y = Math.max(0, Math.floor(l.y * k)), w = Math.max(1, Math.ceil((l.w + 4) * k)), h = Math.max(1, Math.ceil(l.h * k));
@@ -406,6 +419,7 @@ async function editExisting(P, p) {
   let fname = ''; try { const pg = await S.pdf.getPage(P.pi + 1); const fo = pg.commonObjs.get(l.font); fname = (fo && (fo.name || fo.loadedName)) || ''; } catch (e) { }
   fname += ' ' + (l.style?.fontFamily || '');
   const font = guessFont(fname, l.str); const bold = /bold|black|heavy|semibold|demi/i.test(fname); const italic = /italic|oblique/i.test(fname);
+  const miss = msFontHint(fname); if (miss && !E._hinted?.[miss]) { (E._hinted ||= {})[miss] = 1; toast(`ไฟล์นี้ใช้ฟอนต์ ${miss} — กดเลือกฟอนต์ › "+ เพิ่มฟอนต์จากเครื่อง" เพื่อให้เหมือนต้นฉบับ 100% (ตอนนี้ใช้ ${fontLabel(font)} แทน)`); }
   const { bg, fg } = sampleColors(P, l);
   pushUndo(); const arr = (E.annots[P.pi] ||= []);
   arr.push({ type: 'white', x: l.x - 1.5, y: l.y - 0.5, w: l.w + 3, h: l.h + 1, color: bg, _orig: true, _line: { x: l.x, y: l.y, w: l.w, h: l.h } });
