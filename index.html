@@ -28,7 +28,7 @@
 html.dark{ --bg:#0f1115; --panel:#181b21; --panel2:#1e2229; --ink:#e8eaee; --ink2:#a9b0bc; --ink3:#77808d; --line:#2a2f38; --line2:#363c47; --acc-l:#3a1d1b; --hdr:#0a0c0f; --sh:none; }
 *{box-sizing:border-box}
 html,body{margin:0;height:100%}
-body{font-family:var(--thai);color:var(--ink);background:var(--bg);font-size:14px;overflow:hidden;position:fixed;inset:0;display:flex;flex-direction:column}
+body{font-family:var(--thai);color:var(--ink);background:var(--bg);font-size:14px;overflow:hidden;position:fixed;top:0;left:0;right:0;height:100%;height:var(--appH,100lvh);display:flex;flex-direction:column}
 button,input,select,textarea{font:inherit;color:inherit}
 svg{flex:none}
 .muted{color:#8a909c}
@@ -292,7 +292,15 @@ html.dark .banner{background:#3a2e10;border-color:#6b5317;color:#f5d48a}
 <script src="js/core.js"></script>
 <script src="js/app.js"></script>
 <script src="js/editor.js"></script>
-<script>initShell();
+<script>
+(function fixH(){ // iOS home-screen apps report a short viewport; use the real screen height there
+  const set = () => { let h = window.innerHeight;
+    if (navigator.standalone || matchMedia('(display-mode: standalone)').matches) { const port = matchMedia('(orientation: portrait)').matches;
+      const sh = port ? Math.max(screen.width, screen.height) : Math.min(screen.width, screen.height); if (sh > h) h = sh; }
+    document.documentElement.style.setProperty('--appH', h + 'px'); };
+  set(); addEventListener('resize', set); addEventListener('orientationchange', () => setTimeout(set, 300));
+})();
+initShell();
 if ('serviceWorker' in navigator && /github\.io$|localhost/.test(location.hostname)) { window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {})); }
 </script>
 </body>
