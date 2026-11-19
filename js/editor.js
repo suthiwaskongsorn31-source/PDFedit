@@ -99,7 +99,7 @@ function drawObj(g, o) {
   g.save(); g.globalAlpha = (o.opacity ?? 100) / 100; g.lineCap = 'round'; g.lineJoin = 'round';
   switch (o.type) {
     case 'text': { if (o._box) { g.strokeStyle = '#2563eb'; g.lineWidth = 1 / E.zoom; g.setLineDash([4 / E.zoom, 3 / E.zoom]); g.strokeRect(o.x, o.y, o.w, o.h); break; } const F = faceFor(o); if (!F) { requestFace(o, redrawAll); break; } canvasText(g, o, F); break; }
-    case 'pen': case 'hl': { g.strokeStyle = o.color; g.lineWidth = o.width; if (o.type === 'hl') { g.lineCap = 'butt'; g.globalCompositeOperation = 'multiply'; }
+    case 'pen': case 'hl': { g.strokeStyle = o.color; g.lineWidth = o.width; if (o.type === 'hl') { g.lineCap = 'butt'; if (g.canvas && g.canvas.dataset && g.canvas.dataset.hl == null) g.globalCompositeOperation = 'multiply'; }
       g.beginPath(); for (const s of smoothPts(o.pts)) { if (s[0] === 'M') g.moveTo(s[1], s[2]); else if (s[0] === 'Q') g.quadraticCurveTo(s[1], s[2], s[3], s[4]); else g.lineTo(s[1], s[2]); } g.stroke(); break; }
     case 'rect': if (o.fill && o.fill !== 'none') { g.fillStyle = o.fill; g.fillRect(o.x, o.y, o.w, o.h); } if (o.width > 0) { g.strokeStyle = o.color; g.lineWidth = o.width; g.lineJoin = 'miter'; g.strokeRect(o.x, o.y, o.w, o.h); } break;
     case 'ellipse': g.beginPath(); g.ellipse(o.x + o.w / 2, o.y + o.h / 2, Math.abs(o.w / 2), Math.abs(o.h / 2), 0, 0, Math.PI * 2); if (o.fill && o.fill !== 'none') { g.fillStyle = o.fill; g.fill(); } if (o.width > 0) { g.strokeStyle = o.color; g.lineWidth = o.width; g.stroke(); } break;
@@ -126,9 +126,12 @@ function drawObj(g, o) {
 function redraw(pi) {
   const P = E.pages[pi]; if (!P) return; const g = P.ov.getContext('2d'); const k = E.zoom * DPR;
   g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, P.ov.width, P.ov.height); g.setTransform(k, 0, 0, k, 0, 0);
+  // highlights live on their own layer that blends (multiply) with the page, so text stays visible
+  const hg = P.hl.getContext('2d'); hg.setTransform(1, 0, 0, 1, 0, 0); hg.clearRect(0, 0, P.hl.width, P.hl.height); hg.setTransform(k, 0, 0, k, 0, 0);
+  (E.annots[pi] || []).forEach(o => { if (o.type === 'hl') drawObj(hg, o); });
   if (E.tool === 'edittext' && P.lines) { g.save(); g.strokeStyle = 'rgba(37,99,235,.55)'; g.fillStyle = 'rgba(37,99,235,.06)'; g.lineWidth = 1 / E.zoom; g.setLineDash([3 / E.zoom, 2 / E.zoom]);
     P.lines.forEach((l, i) => { g.fillRect(l.x - 1, l.y, l.w + 2, l.h); if (i === P.hover) { g.save(); g.fillStyle = 'rgba(37,99,235,.16)'; g.fillRect(l.x - 1, l.y, l.w + 2, l.h); g.restore(); } g.strokeRect(l.x - 1, l.y, l.w + 2, l.h); }); g.restore(); }
-  (E.annots[pi] || []).forEach(o => drawObj(g, o));
+  (E.annots[pi] || []).forEach(o => { if (o.type !== 'hl') drawObj(g, o); });
   if (E.search.hits.length) { g.save(); E.search.hits.forEach((h, i) => { if (h.p !== pi) return; g.fillStyle = i === E.search.i ? 'rgba(249,115,22,.45)' : 'rgba(250,204,21,.4)'; g.fillRect(h.x, h.y, h.w, h.h); }); g.restore(); }
   const o = E.sel && E.sel.p === pi ? selObj() : null;
   if (o && !o._hide) { const z = 1 / E.zoom; g.save(); g.strokeStyle = '#2563eb'; g.lineWidth = 1.3 * z;
@@ -323,11 +326,12 @@ function buildEditPages() {
   pageIO = new IntersectionObserver(ents => ents.forEach(en => { if (en.isIntersecting) { const P = E.pages[+en.target.dataset.pi]; if (P && !P.rendered) renderBase(P); } }), { root: sc, rootMargin: '800px' });
   S.sizes.forEach(([W, H], pi) => {
     const wrap = document.createElement('div'); wrap.className = 'epage'; wrap.dataset.pi = pi; wrap.style.width = W * E.zoom + 'px'; wrap.style.height = H * E.zoom + 'px';
-    const base = document.createElement('canvas'), ov = document.createElement('canvas');
-    [base, ov].forEach(c => { c.width = Math.round(W * E.zoom * DPR); c.height = Math.round(H * E.zoom * DPR); c.style.width = W * E.zoom + 'px'; c.style.height = H * E.zoom + 'px'; });
+    const base = document.createElement('canvas'), ov = document.createElement('canvas'), hl = document.createElement('canvas');
+    hl.dataset.hl = '1'; hl.style.mixBlendMode = 'multiply'; hl.style.pointerEvents = 'none';
+    [base, hl, ov].forEach(c => { c.width = Math.round(W * E.zoom * DPR); c.height = Math.round(H * E.zoom * DPR); c.style.width = W * E.zoom + 'px'; c.style.height = H * E.zoom + 'px'; });
     const lab = document.createElement('div'); lab.className = 'plabel'; lab.textContent = `${pi + 1} / ${S.sizes.length}`;
-    wrap.append(base, ov, lab); box.appendChild(wrap);
-    const P = { wrap, base, ov, W, H, pi, rendered: false, lines: null, hover: -1 }; E.pages.push(P); pageIO.observe(wrap);
+    wrap.append(base, hl, ov, lab); box.appendChild(wrap);
+    const P = { wrap, base, ov, hl, W, H, pi, rendered: false, lines: null, hover: -1 }; E.pages.push(P); pageIO.observe(wrap);
     ov.addEventListener('pointerdown', e => onDown(e, P)); ov.addEventListener('dblclick', e => onDbl(e, P));
     ov.addEventListener('pointermove', e => onHover(e, P)); ov.addEventListener('pointerleave', () => { if (P.hover >= 0) { P.hover = -1; redraw(P.pi); } });
     redraw(pi);
